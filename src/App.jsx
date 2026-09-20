@@ -40,9 +40,9 @@ const evaluateMessageLocally = (msg) => {
 
   // 1. Predatory Grooming / Secrecy / Meeting up
   const groomingTerms = [
-    'snapchat', 'vanish', 'secret', 'meet', 'parents', 'pic',
-    'photo', 'private', 'alone', "don't tell", "dont tell",
-    'keep this between', 'delete this', 'hotel', 'address'
+    'snapchat', 'vanish', 'secret', 'meet', 'parents', 'pic', 'photo',
+    'dm', 'shh', 'alone', "don't tell", "dont tell", 'private',
+    'keep this between', 'delete this', 'hotel', 'address', 'nude'
   ]
   if (groomingTerms.some(term => text.includes(term))) {
     return {
@@ -57,10 +57,10 @@ const evaluateMessageLocally = (msg) => {
 
   // 2. Self-Harm or Distress terms
   const distressTerms = [
-    'suicide', 'die', 'kill', 'end it', 'hurt', 'hurts',
-    'hopeless', 'depressed', "can't keep going", "cant keep going",
+    'hurt', 'die', 'kill', 'depressed', 'pain', 'cry', 'help', 'give up',
+    'suicide', 'end it', 'hurts', 'hopeless', "can't keep going", "cant keep going",
     "can't go on", "cant go on", 'nothing even matters', 'everything hurts',
-    'pain', 'cut', 'bleed', 'goodbye'
+    'cut', 'bleed', 'goodbye'
   ]
   if (distressTerms.some(term => text.includes(term))) {
     return {
@@ -75,9 +75,9 @@ const evaluateMessageLocally = (msg) => {
 
   // 3. Financial or OTP terms
   const financialTerms = [
-    'otp', '6-digit', 'code', 'pin', 'bank', 'card', 'cvv', 'password',
-    'wire', 'transfer', 'crypto', 'gift card', 'account suspended',
-    'urgent', 'legal penalty', 'verification code'
+    'money', 'cash', 'pay', 'transfer', 'otp', 'bank', 'card', 'crypto',
+    'urgent', 'account', 'dollar', '6-digit', 'code', 'pin', 'cvv', 'password',
+    'wire', 'gift card', 'account suspended', 'legal penalty', 'verification'
   ]
   if (financialTerms.some(term => text.includes(term))) {
     return {
@@ -368,7 +368,7 @@ function KidView({
   onRequestExtension, extensionRequested,
   drawerOpen, setDrawerOpen,
   onSimulate, toast,
-  vaultLoading
+  vaultLoading, safeNotice
 }) {
   const [livePayload, setLivePayload] = useState('')
   const remaining = Math.max(0, screenTimeTotal - screenTimeUsed)
@@ -564,15 +564,22 @@ function KidView({
                     width: '100%', border: 'none', borderRadius: '10px', padding: '9px 12px',
                     cursor: (vaultLoading || !livePayload.trim()) ? 'not-allowed' : 'pointer',
                     fontSize: '11px', fontWeight: 700,
-                    color: vaultLoading ? 'var(--text-muted)' : '#6c5ce7', fontFamily: 'Inter',
+                    color: safeNotice ? '#00b894' : (vaultLoading ? 'var(--text-muted)' : '#6c5ce7'),
+                    fontFamily: 'Inter',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                     background: 'var(--bg)',
                     opacity: (vaultLoading || !livePayload.trim()) ? 0.65 : 1,
                     transition: 'all 0.15s ease'
                   }}
                 >
-                  <Send size={12} />
-                  <span>{vaultLoading ? 'Transmitting payload...' : 'Send Payload'}</span>
+                  {safeNotice ? <Check size={12} color="#00b894" /> : <Send size={12} />}
+                  <span>
+                    {vaultLoading
+                      ? 'Transmitting payload...'
+                      : safeNotice
+                        ? '✅ Message Verified Safe'
+                        : 'Send Payload'}
+                  </span>
                 </button>
               </form>
             </div>
@@ -1604,6 +1611,7 @@ export default function App() {
   const [vaultLoading, setVaultLoading] = useState(false)
   const [vaultError, setVaultError] = useState(null)
   const [sentinelStatus, setSentinelStatus] = useState('🛡️ Sentinel Edge-AI Protected')
+  const [safeNotice, setSafeNotice] = useState(false)
 
   // --- Counselor state ---
   const [counselorOpen, setCounselorOpen] = useState(false)
@@ -1768,6 +1776,10 @@ export default function App() {
 
       if (isNormal) {
         showToast('✅ Sentinel Edge Analysis Verified: Normal conversation — no threats detected', '#00b894', 3500)
+        setSafeNotice(true)
+        setTimeout(() => {
+          setSafeNotice(false)
+        }, 3000)
       } else {
         const now = new Date()
         const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -1804,6 +1816,11 @@ export default function App() {
 
         setThreats(prev => [newThreat, ...prev])
         showToast(`🚨 ${category || normalizedType} token pushed to Sentinel Vault`, '#e17055', 3500)
+
+        // Wait 800ms (so the user sees the processing badge complete), then automatically update to Parent Hub view
+        setTimeout(() => {
+          setActiveView('parent')
+        }, 800)
       }
     } catch (parseErr) {
       console.error('Error processing threat data:', parseErr)
@@ -1972,6 +1989,7 @@ export default function App() {
               onSimulate={handleSimulate}
               toast={toast}
               vaultLoading={vaultLoading}
+              safeNotice={safeNotice}
             />
           ) : activeView === 'parent' ? (
             <ParentView
